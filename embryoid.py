@@ -30,7 +30,7 @@ Lx, Ly = R, R
 Nx, Ny = 1024, 1024
 
 dealias = 3/2
-stop_sim_time = 1000
+stop_sim_time = 100
 timestepper = d3.RK222
 timestep = 0.05
 dtype = np.float64
@@ -88,19 +88,24 @@ for cx in cell_centers_x:
         cell_centers[i] = (cx, cy)
         i += 1
 
+vals1 = np.zeros([Nx, Ny])
+vals2 = np.zeros([Nx, Ny])
 for (cx, cy) in cell_centers:
     rhos = np.zeros([9, Nx, Ny])
     k = 0
     for i in range(-1, 2):
-        xs = x + Lx*i
+        xs = xbasis.global_grid() + Lx*i
         for j in range(-1, 2):
-            ys = y + Ly*j
+            ys = ybasis.global_grid() + Ly*j
             rhos[k] = np.sqrt((xs - cx)**2 + (ys - cy)**2)
             k += 1
     rho = np.min(rhos, axis=0)
     d = rho - rcell
-    cells1['g'] += 0.5 * (1 - np.tanh(kcell * d))
-    cells2['g'] += 0.5 * (1 - np.tanh(kcell * d))
+    vals1 += 0.5 * (1 - np.tanh(kcell * d))
+    vals2 += 0.5 * (1 - np.tanh(kcell * d))
+
+cells1.set_global_data(vals1)
+cells2.set_global_data(vals2)
 
 cells1['g'] = np.minimum(cells1['g'], 1)
 cells2['g'] = np.minimum(cells2['g'], 1)
@@ -136,7 +141,7 @@ s1['g'] = fp_s1 + 0.05 * np.random.rand(*s1['g'].shape)
 s2['g'] = fp_s2 + 0.05 * np.random.rand(*s2['g'].shape)
 
 # Plot grid values
-plot = True
+plot = False
 if plot:
     ax, _ = plot_bot_2d(cells1, figkw=figkw, title="cells1['g']")
     ax.axis('equal')
