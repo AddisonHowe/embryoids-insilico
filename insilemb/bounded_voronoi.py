@@ -43,13 +43,23 @@ class BoundedVoronoi:
         self.boundary_type = boundary_type
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
         # Primary points
-        self.points = np.array(points)
-        self.ncells = len(points)
+        if isinstance(points, int):
+            self.ncells = points
+            dx = self.bounding_box[1] - self.bounding_box[0]
+            dy = self.bounding_box[3] - self.bounding_box[2]
+            points = np.random.rand(points, self.ndim)
+            points[:,0] = points[:,0] * dx + self.bounding_box[0]
+            points[:,1] = points[:,1] * dy + self.bounding_box[2]
+            self.points = points
+        else:
+            self.points = np.array(points)
+            self.ncells = len(points)
         # Reflect the primary points
         if mirroring == "bbox" or mirroring == "bounding_box":
             # Check that points are inside the bounding box.
             assert np.all(in_box(self.points, bounding_box)), \
-                f"All given points should be inside the box: {bounding_box}."
+                f"All given points should be inside the box: {bounding_box}."+\
+                f"\nGot:\n{self.points}"
             self.bbox = bounding_box
             # Get tuple consisting of mirrored point coordinates.
             mirrored_points, mirror_idxs = self._get_mirrored_points(mirroring)

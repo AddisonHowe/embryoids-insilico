@@ -90,6 +90,11 @@ def plot_bounded_voronoi(vor, **kwargs):
     plot_points = kwargs.get('plot_points', True)
     plot_centroids = kwargs.get('plot_centroids', True)
     plot_vertices = kwargs.get('plot_vertices', True)
+    plot_data = kwargs.get('plot_data', False)
+    data = kwargs.get('data', None)
+    norm = kwargs.get('norm', None)
+    cmap = kwargs.get('cmap', 'jet')
+    title = kwargs.get('title', None)
     saveas = kwargs.get('saveas', None)
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
     fig, ax = plt.subplots(1, 1)
@@ -110,8 +115,16 @@ def plot_bounded_voronoi(vor, **kwargs):
     if plot_centroids:
         centroids = vor.get_centroids()
         ax.plot(centroids[:, 0], centroids[:, 1], 'r.')
+    if plot_data:
+        sc = ax.scatter(
+            vor.get_points()[:,0], vor.get_points()[:,1], 
+            s=8, c=data, norm=norm, cmap=cmap
+        )
+        fig.colorbar(sc, ax=ax, fraction=0.015)
     ax.set_xlim(xlims)
     ax.set_ylim(ylims)
+    if title: 
+        ax.set_title(title)
     if saveas:
         plt.savefig(saveas)
     return ax
