@@ -91,9 +91,11 @@ def plot_bounded_voronoi(vor, **kwargs):
     plot_centroids = kwargs.get('plot_centroids', True)
     plot_vertices = kwargs.get('plot_vertices', True)
     plot_data = kwargs.get('plot_data', False)
+    plot_edges = kwargs.get('plot_edges', False)
     data = kwargs.get('data', None)
     norm = kwargs.get('norm', None)
     cmap = kwargs.get('cmap', 'jet')
+    size = kwargs.get('size', 1)
     title = kwargs.get('title', None)
     saveas = kwargs.get('saveas', None)
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
@@ -107,10 +109,11 @@ def plot_bounded_voronoi(vor, **kwargs):
             vertices = vor.get_vertices(region=region)
             ax.plot(vertices[:, 0], vertices[:, 1], 'go')
     # Plot ridges
-    for region in vor.get_regions():
-        vertices = vor.get_vertices(region=region+[region[0]])
-        # vertices = vor.vertices[region + [region[0]], :]
-        ax.plot(vertices[:, 0], vertices[:, 1], 'k-')
+    if plot_edges:
+        for region in vor.get_regions():
+            vertices = vor.get_vertices(region=region+[region[0]])
+            # vertices = vor.vertices[region + [region[0]], :]
+            ax.plot(vertices[:, 0], vertices[:, 1], 'k-')
     # Compute and plot centroids
     if plot_centroids:
         centroids = vor.get_centroids()
@@ -118,7 +121,7 @@ def plot_bounded_voronoi(vor, **kwargs):
     if plot_data:
         sc = ax.scatter(
             vor.get_points()[:,0], vor.get_points()[:,1], 
-            s=8, c=data, norm=norm, cmap=cmap
+            s=size, c=data, norm=norm, cmap=cmap
         )
         fig.colorbar(sc, ax=ax, fraction=0.015)
     ax.set_xlim(xlims)

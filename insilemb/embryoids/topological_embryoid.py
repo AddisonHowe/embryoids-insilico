@@ -14,7 +14,7 @@ class TopologicalEmbryoid:
 
     def __init__(self, ncells, adj, 
                  data=None, diffusivities=None, alphas=None, betas=None,
-                 boundary_idx=-1, locations=None, ndim=2):
+                 boundary_idx=-1, locations=None, ndim=2, nonlinearity=None):
         #~~~~~~~~~~~~~~~~~ process kwargs ~~~~~~~~~~~~~~~~~#
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
         self.ndim = ndim  # dimension of the embryo
@@ -65,6 +65,10 @@ class TopologicalEmbryoid:
         if self.locations is not None:
             self.locations = np.array(locations)
             assert self.locations.shape == (self.ncells, self.ndim)
+        # Initialize fixed cell rules
+        self.fixed_cells = []
+        # Handle nonlinear term
+        self.nonlinearity = nonlinearity if nonlinearity else lambda d, i: 0
 
     def __str__(self) -> str:
         # return "TopologicalEmbryoid[ncells={}, bidx={}, fields: {}]".format(
@@ -91,18 +95,37 @@ class TopologicalEmbryoid:
     ##  Update Methods  ##
     ######################
 
+    def fix_cells(self, idxs, values, dataidx=None):
+        if dataidx is None:
+            for k in range(self.nfields):
+                rule = (k, idxs, values)
+                self.fixed_cells.append(rule)
+        elif isinstance(dataidx, int):
+            rule = (dataidx, idxs, values)
+            self.fixed_cells.append(rule)
+        self._set_fixed_cells()
+
+    def _set_fixed_cells(self):
+        if self.fixed_cells:
+            for dataidx, cellidxs, values in self.fixed_cells:
+                self.data[dataidx,cellidxs] = values
+
     def step(self, dt):
         newdata = np.empty(self.data.shape)
         for i in range(self.nfields):
             newdata[i] = self._update_layer(i, dt)
         self.data = newdata
+        self._set_fixed_cells()
         
     def _update_layer(self, idx, dt):
         x = self.data[idx]
         nu = self.diffusivities[idx]
         a = self.alphas[idx]
         b = self.betas[idx]
-        k = np.sum(self.adj.multiply(x) - scipy.sparse.diags(x, 0) * self.adj, 
-                   axis=1).A1
-        return np.maximum(x + dt * (a - b*x + nu * k), 0)
+        laplac = np.sum(
+            self.adj.multiply(x) - scipy.sparse.diags(x, 0) * self.adj, 
+            axis=1).A1
+        nonlinterm = self.nonlinearity(self.data, idx)
+        dxdt = a - b*x + nu*laplac + nonlinterm
+        return np.maximum(x + dt * dxdt, 0)
     
