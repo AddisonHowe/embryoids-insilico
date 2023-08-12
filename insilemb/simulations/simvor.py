@@ -50,7 +50,7 @@ def run_voronoi_simulation(ncells, nu, alpha, beta,
 
     locations = vor.get_points()
     emb = TopologicalEmbryoid(
-        ncells, vor.get_adjacency_matrix(), data=ic,
+        ncells, vor.get_adjacency_matrix(), fields=ic,
         diffusivities=nu, alphas=alpha, betas=beta,
         boundary_idx=boundary_idx, locations=locations,
         nonlinearity=nonlinearity
@@ -61,17 +61,17 @@ def run_voronoi_simulation(ncells, nu, alpha, beta,
     #     emb.fix_cells(vor.get_edge_cells(2), 100, 1)
     
     print("Running simulation...")
-    # history = np.empty([nsteps, *emb.get_data().shape], dtype=np.float32)
-    plt_history = [] #[emb.get_data().copy()]
+    # history = np.empty([nsteps, *emb.get_fields().shape], dtype=np.float32)
+    plt_history = [] #[emb.get_fields().copy()]
     plt_times = [] #[0]
     t = 0
     for i in tqdm(range(nsteps), desc="Simulating"):
         t += dt
         emb.step(dt=dt)
-        # history[i] = emb.get_data().astype(np.float32)
+        # history[i] = emb.get_fields().astype(np.float32)
         if t >= burnin and (i+1) % saverate == 0:
             # plt_history.append(history[i])
-            plt_history.append(emb.get_data().astype(np.float32))
+            plt_history.append(emb.get_fields().astype(np.float32))
             plt_times.append(t)
     plt_history = np.array(plt_history)
     print("Plotting...")

@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from insilemb.voronoi import BoundedVoronoi
+from insilemb.bounded_voronoi import BoundedVoronoi
 from insilemb.embryoids import TopologicalEmbryoid
 
 
@@ -115,7 +115,7 @@ class TestDiffusion:
         beta = 0
         adj = vor.get_adjacency_matrix()
         emb = TopologicalEmbryoid(
-            ncells, adj, boundary_idx=None, data=ic,
+            ncells, adj, boundary_idx=None, fields=ic,
             diffusivities=[nu], alphas=[alpha], betas=[beta]
         )
         emb.step(dt=0.1)
@@ -126,6 +126,6 @@ class TestDiffusion:
             8.2, 4.6, 2.8, 4.6, 8.2,
             10,  8.2, 8.2, 8.2, 10,
         ])
-        assert np.allclose(emb.get_data()[0], expected)
+        assert np.allclose(emb.get_fields()[0], expected)
 
 

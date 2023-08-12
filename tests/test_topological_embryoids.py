@@ -29,9 +29,9 @@ ADJ1 = [
     ],
 ])
 def test_update1(ncells, adj, nu, a, b, data0, expected):
-    emb = TopologicalEmbryoid(ncells, adj, data0, diffusivities=nu,
+    emb = TopologicalEmbryoid(ncells, adj, fields=data0, diffusivities=nu,
                               alphas=a, betas=b)
     print(emb.adj.todense())
     emb.step(1)
-    assert np.allclose(emb.get_data(), expected), \
-        f"Expected:\n{expected}\nGot:\n{emb.get_data()}"
+    assert np.allclose(emb.get_fields(), expected), \
+        f"Expected:\n{expected}\nGot:\n{emb.get_fields()}"
