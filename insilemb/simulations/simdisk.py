@@ -14,17 +14,22 @@ try:
 except ImportError:
     cupy_success = False
 
+def padidx(i, n):
+    return str(i).zfill(len(str(n)))
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-n', '--ncells', type=int, default=10000)
     parser.add_argument('-t', '--tfin', type=float, default=5000)
     parser.add_argument('-dt', '--dt', type=float, default=0.01)
     parser.add_argument('-s', '--saverate', type=int, default=2000)
+    parser.add_argument('-w', '--writerate', type=int, default=0)
     parser.add_argument('-b', '--boundary_type', type=str, default=None)
     parser.add_argument('-r', '--regularization', type=int, default=10)
     parser.add_argument('-o', '--outdir', type=str, default="out/sims/simdisk")
     parser.add_argument('-v', '--verbosity', type=int, default=0)
     parser.add_argument('--use_gpu', action="store_true")
+    parser.add_argument('--seed', type=int, default=0)
     args = parser.parse_args()
     return args
     
@@ -51,24 +56,35 @@ def run_voronoi_simulation(ncells,
     fix_cells = kwargs.get('fix_cells', None)
     nonlinearity = kwargs.get('nonlinearity', None)
     saverate = kwargs.get('saverate', 1)
+    writerate = kwargs.get('writerate', 0)
     show_pbar = kwargs.get('show_pbar', True)
     use_gpu = kwargs.get('use_gpu', False)
     outdir = kwargs.get('outdir', "out/sims/disk")
+    imgdir = kwargs.get('imgdir', f"{outdir}/images")
+    datdir = kwargs.get('datdir', f"{outdir}/snapshots")
     verbosity = kwargs.get('verbosity', 0)
+    seed = kwargs.get('seed', 0)
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
     if outdir: 
         os.makedirs(outdir, exist_ok=True)
+        os.makedirs(imgdir, exist_ok=True)
+        os.makedirs(datdir, exist_ok=True)
+
+    if writerate is None or writerate == 0 or str(writerate).lower() == 'none':
+        writerate = nsteps
 
     print('ncells:', ncells)
     print('nsteps:', nsteps)
     print('dt:', dt)
     print('saverate:', saverate)
+    print('writerate:', writerate)
     print('r_box:', r_box)
     print('r_emb:', r_emb)
     print('emb_center:', emb_center)
     print('regularization:', regularization)
     print('boundary_type:', boundary_type)
     print('use_gpu:', use_gpu)
+    print('seed:', seed)
     
     xp = np if not use_gpu else cp
 
@@ -142,6 +158,7 @@ def run_voronoi_simulation(ncells,
     t = 0
     time0 = time.time()
     time1 = time0
+    writeidx = 0
     for i in tqdm(range(nsteps), desc="Simulating", disable=not show_pbar):
         t += dt
         emb.step(dt=dt)
@@ -159,6 +176,10 @@ def run_voronoi_simulation(ncells,
             # plt_history.append(history[i])
             plt_history.append(emb.get_fields().astype(np.float32))
             plt_times.append(t)
+        if (i+1) % writerate == 0:
+            np.save(f"{datdir}/data_{writeidx}.npy", 
+                    emb.get_fields().astype(np.float32))
+            writeidx += 1
     plt_history = np.array(plt_history)
     print(f"Simulation complete. Elapsed time: {time.time()-time0:.5g} sec")
 
@@ -180,7 +201,7 @@ def run_voronoi_simulation(ncells,
             norm=norm0,
             cmap='jet',
             title=f"$t={t:.4g}$",
-            saveas=f"{outdir}/imga{str(i).zfill(len(str(nsteps)))}.png",
+            saveas=f"{imgdir}/imga{padidx(i, int(nsteps//saverate))}.png",
         )
         plt.close()
         pl.plot_bounded_voronoi(
@@ -193,7 +214,7 @@ def run_voronoi_simulation(ncells,
             norm=norm1,
             cmap='jet',
             title=f"$t={t:.4g}$",
-            saveas=f"{outdir}/imgb{str(i).zfill(len(str(nsteps)))}.png",
+            saveas=f"{imgdir}/imgb{padidx(i, int(nsteps//saverate))}.png",
         )
         plt.close()
     
@@ -206,18 +227,22 @@ def main():
     tfin = args.tfin
     dt = args.dt
     saverate = args.saverate
+    writerate = args.writerate
     boundary_type = args.boundary_type
     regularization = args.regularization
     outdir = args.outdir
     verbosity = args.verbosity
     use_gpu = args.use_gpu
+    seed = args.seed
+
+    # Random number generator
+    rng = np.random.default_rng(seed=seed)
     
     # Number of nodes
     n = ncells
 
     # Specify initial condition
-    # ic = np.ones([2, n]) + 0.1 * np.random.randn(2, n)
-    ic = np.random.rand(2, n)
+    ic = rng.random([2, n])
 
     # Dish and embryoid radii
     r_box = 1.2
@@ -225,8 +250,8 @@ def main():
     emb_center = [0, 0]
 
     # Define model parameters
-    nus_inner = [0.0025, 0.4]  # 0.0025 / 0.014 <-> yes / no turing patter
-    nus_outer = [0.0025, 0.4]  # 0.0025 / 0.014 <-> yes / no turing patter
+    nus_inner = [0.0025, 0.4]  # 0.0025 / 0.014 <-> yes / no turing pattern
+    nus_outer = [0.0025, 0.4]  # 0.0025 / 0.014 <-> yes / no turing pattern
     alphas_inner = [0.0, 0.0]
     alphas_outer = [0.0, 0.0]
     betas_inner = [0.001, 0.008]
@@ -243,13 +268,14 @@ def main():
         ncells, nus_inner, nus_outer, alphas_inner, alphas_outer, betas_inner, 
         betas_outer, sa_inner, sa_outer, si_inner, si_outer, ka, ki, 
         r_emb=r_emb, r_box=r_box, emb_center=emb_center,
-        ic=ic, dt=dt, nsteps=nsteps, saverate=saverate,
+        ic=ic, dt=dt, nsteps=nsteps, saverate=saverate, writerate=writerate,
         boundary_type=boundary_type, 
         regularization=regularization, 
         show_pbar=False,
         verbosity=verbosity,
         outdir=outdir, 
-        use_gpu=use_gpu
+        use_gpu=use_gpu,
+        seed=seed,
     )
 
 if __name__ == "__main__":
