@@ -59,6 +59,7 @@ def run_voronoi_simulation(ncells,
     if outdir: 
         os.makedirs(outdir, exist_ok=True)
 
+    print('ncells:', ncells)
     print('nsteps:', nsteps)
     print('dt:', dt)
     print('saverate:', saverate)
@@ -67,6 +68,7 @@ def run_voronoi_simulation(ncells,
     print('emb_center:', emb_center)
     print('regularization:', regularization)
     print('boundary_type:', boundary_type)
+    print('use_gpu:', use_gpu)
     
     xp = np if not use_gpu else cp
 
