@@ -23,6 +23,7 @@ def run_voronoi_simulation(ncells, nu, alpha, beta,
     fix_cells = kwargs.get('fix_cells', None)
     nonlinearity = kwargs.get('nonlinearity', None)
     saverate = kwargs.get('saverate', 1)
+    show_pbar = kwargs.get('show_pbar', True)
     outdir = kwargs.get('outdir', "out/sims/voronoi")
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
     if outdir: 
@@ -45,7 +46,8 @@ def run_voronoi_simulation(ncells, nu, alpha, beta,
 
     vor = BoundedVoronoi(ncells, boundary_type=boundary_type)
     if regularization:
-        for i in tqdm(range(regularization), desc="Regularizing"):
+        for i in tqdm(range(regularization), desc="Regularizing", 
+                      disable=not show_pbar):
             vor = vor.recenter()
 
     locations = vor.get_points()
@@ -65,7 +67,7 @@ def run_voronoi_simulation(ncells, nu, alpha, beta,
     plt_history = [] #[emb.get_fields().copy()]
     plt_times = [] #[0]
     t = 0
-    for i in tqdm(range(nsteps), desc="Simulating"):
+    for i in tqdm(range(nsteps), desc="Simulating", disable=not show_pbar):
         t += dt
         emb.step(dt=dt)
         # history[i] = emb.get_fields().astype(np.float32)
@@ -77,7 +79,8 @@ def run_voronoi_simulation(ncells, nu, alpha, beta,
     print("Plotting...")
     norm0 = Normalize(vmin=plt_history[:,0].min(), vmax=plt_history[:,0].max())
     norm1 = Normalize(vmin=plt_history[:,1].min(), vmax=plt_history[:,1].max())
-    for i in tqdm(range(len(plt_history)), desc="Plotting"):
+    for i in tqdm(range(len(plt_history)), desc="Plotting", 
+                  disable=not show_pbar):
         t = plt_times[i]
         data = plt_history[i]
         pl.plot_bounded_voronoi(
@@ -142,7 +145,7 @@ def main():
         ncells, nu, alpha, beta, 
         ic=ic, dt=dt, nsteps=nsteps, saverate=saverate,
         boundary_type=boundary_type, regularization=20,
-        nonlinearity=nonlinearity
+        nonlinearity=nonlinearity, show_pbar=False,
     )
 
 if __name__ == "__main__":

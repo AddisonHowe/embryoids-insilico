@@ -4,6 +4,14 @@ Topological Embryoid
 
 import numpy as np
 import scipy
+cupy_success = True
+try:
+    import cupy as cp
+    from cupyx.scipy.sparse import diags as cpsp_diags
+    from cupyx.scipy.sparse import csr_matrix as cpsp_csr_matrix
+except ImportError:
+    cupy_success = False
+
 
 class TopologicalEmbryoid:
     """A topologically defined embryoid, consisting of a set of indexed cells,
@@ -42,8 +50,14 @@ class TopologicalEmbryoid:
         diffusivities = kwargs.get('diffusivities', None)
         boundary_idx = kwargs.get('boundary_idx', -1)
         nonlinearity = kwargs.get('nonlinearity', None)
+        use_gpu = kwargs.get('use_gpu', False)
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-        
+
+        # Handle GPU option
+        self.use_gpu = use_gpu
+        xp = np if not use_gpu else cp
+        self.xp = xp
+                
         # Number and dimension of cells constituting the embryoid
         self.ndim = ndim  # dimension of the embryoid
         self.ncells = ncells  # number of cells in the embryoid
@@ -64,7 +78,10 @@ class TopologicalEmbryoid:
         
         # Topological information
         self.nodes = np.arange(self.n, dtype=int)
-        self.adj = scipy.sparse.csr_matrix(adj, dtype=int)
+        if use_gpu:
+            self.adj = cpsp_csr_matrix(adj, dtype=cp.float32)
+        else:
+            self.adj = scipy.sparse.csr_matrix(adj, dtype=int)
         assert self.adj.shape == (self.n, self.n), \
             f"Bad adj shape. Got: {adj.shape}. Expected: ({self.n}, {self.n})"
         
@@ -78,29 +95,13 @@ class TopologicalEmbryoid:
             if np.ndim(self.fields) == 1:
                 self.fields = self.fields[None,:]
             self.nfields = len(self.fields)  # number of fields
-            self.fields = np.array(self.fields)
+            self.fields = xp.array(self.fields)
             assert self.fields.shape == (self.nfields, self.n), \
                 "Bad shape for fields."
         self._initialize_field_data(self.alphas, alphas, s='alphas')
         self._initialize_field_data(self.betas, betas, s='betas')
         self._initialize_field_data(self.diffusivities, diffusivities, 
-                                    s='diffusivities')
-        # if diffusivities is not None: 
-        #     for d in diffusivities:
-        #         if isinstance(d, (int, float)):
-                    
-        #     self.diffusivities = np.array(diffusivities)
-        #     assert self.diffusivities.shape == (self.nfields,), \
-        #         "Wrong shape for diffusivities."
-        # if self.alphas is not None:
-        #     self.alphas = np.array(alphas)
-        #     assert self.alphas.shape == (self.nfields,), \
-        #         "Wrong shape for alphas."
-        # if self.betas is not None:
-        #     self.betas = np.array(betas)
-        #     assert self.betas.shape == (self.nfields,), \
-        #         "Wrong shape for betas."
-        
+                                    s='diffusivities')        
         # Spatial information
         self.locations = locations
         if self.locations is not None:
@@ -123,6 +124,7 @@ class TopologicalEmbryoid:
         return f"<TopologicalEmbryoid>"
     
     def _initialize_field_data(self, selfarray, data, s=""):
+        xp = np if not self.use_gpu else cp
         if data is None:
             return 
         for d in data:
@@ -131,11 +133,11 @@ class TopologicalEmbryoid:
             elif isinstance(d, list):
                 assert len(d) == self.n, f"Data {s} of type list must have " + \
                      f"length {self.n}. Got length {len(d)}."
-                selfarray.append(np.array(d))
-            elif isinstance(d, np.ndarray):
-                assert d.shape == (self.n,), f"Data {s} of type ndarray " + \
+                selfarray.append(xp.array(d))
+            elif isinstance(d, (np.ndarray, xp.ndarray)):
+                assert d.shape == (self.n,), f"Data {s} of type {type(d)} " + \
                     f"must have shape ({self.n},). Got shape {d.shape}."
-                selfarray.append(d)
+                selfarray.append(xp.asarray(d))
             else:
                 msg = f"Type {type(d)} found for field '{s}'."
                 raise NotImplementedError(msg)
@@ -144,8 +146,17 @@ class TopologicalEmbryoid:
     ##  Getter Methods  ##
     ######################
 
-    def get_fields(self, idx=None):
-        return self.fields if idx is None else self.fields[idx]
+    def get_fields(self, idx=None, device='cpu'):
+        if device == 'cpu':
+            if self.use_gpu:
+                if idx is None:
+                    return self.fields.get()
+                else:
+                    return self.fields[idx].get()
+            else:
+                return self.fields if idx is None else self.fields[idx]            
+        else:
+            return self.fields.get() if idx is None else self.fields[idx].get()
     
     def get_locations(self):
         return self.locations
@@ -157,7 +168,7 @@ class TopologicalEmbryoid:
     def fix_cells(self, idxs, values, dataidx=None):
         if dataidx is None:
             for k in range(self.nfields):
-                rule = (k, idxs, values)
+                rule = (k, idxs, self.xp.array(values))
                 self.fixed_cells.append(rule)
         elif isinstance(dataidx, int):
             rule = (dataidx, idxs, values)
@@ -170,7 +181,7 @@ class TopologicalEmbryoid:
                 self.fields[fieldidx, cellidxs] = values
 
     def step(self, dt):
-        newfields = np.empty(self.fields.shape)
+        newfields = self.xp.empty(self.fields.shape)
         for i in range(self.nfields):
             newfields[i] = self._update_layer(i, dt)
         self.fields = newfields
@@ -181,10 +192,15 @@ class TopologicalEmbryoid:
         nu = self.diffusivities[idx]
         a = self.alphas[idx]
         b = self.betas[idx]
-        laplac = np.sum(
-            self.adj.multiply(x) - scipy.sparse.diags(x, 0) * self.adj, 
-            axis=1).A1
+        m = self.adj.multiply(x) - self._sparse_diags(x) * self.adj
+        laplac = m.sum(axis=1).ravel() if self.use_gpu else m.sum(axis=1).A1
         nonlinterm = self.nonlinearity(self.fields, idx)
         dxdt = a - b*x + nu*laplac + nonlinterm
-        return np.maximum(x + dt * dxdt, 0)
+        return self.xp.maximum(x + dt * dxdt, 0)
     
+    def _sparse_diags(self, x):
+        if self.use_gpu:
+            return cpsp_diags(x, 0)
+        else:
+            return scipy.sparse.diags(x, 0)
+        
