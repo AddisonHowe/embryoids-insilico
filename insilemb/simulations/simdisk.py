@@ -225,8 +225,8 @@ def main():
     emb_center = [0, 0]
 
     # Define model parameters
-    nus_inner = [0.014, 0.4]
-    nus_outer = [0.014, 0.4]
+    nus_inner = [0.0025, 0.4]  # 0.0025 / 0.014 <-> yes / no turing patter
+    nus_outer = [0.0025, 0.4]  # 0.0025 / 0.014 <-> yes / no turing patter
     alphas_inner = [0.0, 0.0]
     alphas_outer = [0.0, 0.0]
     betas_inner = [0.001, 0.008]
