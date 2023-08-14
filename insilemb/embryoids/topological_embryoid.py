@@ -81,7 +81,7 @@ class TopologicalEmbryoid:
         if use_gpu:
             self.adj = cpsp_csr_matrix(adj, dtype=cp.float32)
         else:
-            self.adj = scipy.sparse.csr_matrix(adj, dtype=int)
+            self.adj = scipy.sparse.csr_matrix(adj, dtype=np.float32)
         assert self.adj.shape == (self.n, self.n), \
             f"Bad adj shape. Got: {adj.shape}. Expected: ({self.n}, {self.n})"
         

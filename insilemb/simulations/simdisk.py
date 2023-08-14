@@ -160,7 +160,7 @@ def run_voronoi_simulation(ncells,
             plt_history.append(emb.get_fields().astype(np.float32))
             plt_times.append(t)
     plt_history = np.array(plt_history)
-    print(f"Simulation complete. Elasped time: {time.time()-time0:.5g} sec")
+    print(f"Simulation complete. Elapsed time: {time.time()-time0:.5g} sec")
 
     print("Plotting...", flush=True)
     sys.stdout.flush()
