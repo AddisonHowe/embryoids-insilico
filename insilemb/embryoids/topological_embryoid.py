@@ -111,6 +111,8 @@ class TopologicalEmbryoid:
         self.fixed_cells = []
         # Handle nonlinear term
         self.nonlinearity = nonlinearity if nonlinearity else lambda d, i: 0
+        # Newfield array for efficiency
+        self.newfields = xp.empty(self.fields.shape)
 
     def __str__(self) -> str:
         # return "TopologicalEmbryoid[ncells={}, bidx={}, fields: {}]".format(
@@ -181,10 +183,10 @@ class TopologicalEmbryoid:
                 self.fields[fieldidx, cellidxs] = values
 
     def step(self, dt):
-        newfields = self.xp.empty(self.fields.shape)
+        # newfields = self.xp.empty(self.fields.shape)
         for i in range(self.nfields):
-            newfields[i] = self._update_layer(i, dt)
-        self.fields = newfields
+            self.newfields[i] = self._update_layer(i, dt)
+        self.fields[:] = self.newfields
         self._set_fixed_cells()
         
     def _update_layer(self, idx, dt):
