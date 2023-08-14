@@ -1,6 +1,17 @@
-!/bin/sh
+#!/bin/sh
 
-ffmpeg -framerate 5 -pattern_type glob -i "out/sims/$1/imga*.png" \
--c:v libx264 -pix_fmt yuv420p out/sims/$1/outa.mp4
-ffmpeg -framerate 5 -pattern_type glob -i "out/sims/$1/imgb*.png" \
--c:v libx264 -pix_fmt yuv420p out/sims/$1/outb.mp4
+
+if [ "$#" -eq 1 ]; then
+    fpath=$1
+    dooverwrite=-y
+elif [ "$#" -eq 2 ]; then
+    fpath=$1
+    dooverwrite=$2
+fi
+
+
+ffmpeg -framerate 5 -pattern_type glob -i "$fpath/imga*.png" \
+-c:v libx264 -pix_fmt yuv420p $fpath/outa.mp4 $dooverwrite
+
+ffmpeg -framerate 5 -pattern_type glob -i "$fpath/imgb*.png" \
+-c:v libx264 -pix_fmt yuv420p $fpath/outb.mp4 $dooverwrite
