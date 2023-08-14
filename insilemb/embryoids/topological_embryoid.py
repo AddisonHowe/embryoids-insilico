@@ -6,12 +6,30 @@ import numpy as np
 import scipy
 
 class TopologicalEmbryoid:
-    """A topologically defined embryoid. Each cell in the embroid is indexed.
+    """A topologically defined embryoid, consisting of a set of indexed cells,
+    with topology defined by an adjacency matrix. A number of data fields can 
+    be defined over the cells.
+
     Attributes:
-        ncells : number of cells constituting the embryoid.
-        adj : adjacency matrix.
-        ndim : int : dimension of the embryoid.
-        fields : list : 
+        ncells : int : number of cells constituting the embryoid.
+        adj    : ??? : adjacency matrix.
+        ndim   : int : dimension of the embryoid.
+        fields : list of length nfields : Data fields defined over the embryoid.
+        alphas : list of length nfields : Production rate corresponding to each 
+            field. Either a float, in which case the production is uniform 
+            across all cells, or an ndarray of length ncells, in which case the
+            production may vary across cells.
+        betas  : list of length nfields : Linear degradation rate corresponding 
+            to each field. Either a float, in which case the degradation is 
+            uniform across all cells, or an ndarray of length ncells, in which 
+            case the degradation rate may vary across cells.
+        diffusivities : list of length nfields: Diffusion rate corresponding to 
+            each field. Either a float, in which case the diffusivity is uniform 
+            across all cells, or an ndarray of length ncells, in which case the
+            diffusivity may vary across cells.
+        boundary_idx : int : Index corresponding to the boundary, if any.
+        nonlinearity : callable : A function of two inputs, a list of fields and
+            an index, that returns the nonlinear term in the update step.
     """
 
     def __init__(self, ncells, adj, **kwargs):
@@ -50,31 +68,39 @@ class TopologicalEmbryoid:
         assert self.adj.shape == (self.n, self.n), \
             f"Bad adj shape. Got: {adj.shape}. Expected: ({self.n}, {self.n})"
         
-        # Initialize fields information
+        # Initialize field data
         self.fields = fields
         self.nfields = 0
-        self.alphas = alphas
-        self.betas = betas
-        self.diffusivities = diffusivities
+        self.alphas = []
+        self.betas = []
+        self.diffusivities = []
         if self.fields is not None:
             if np.ndim(self.fields) == 1:
                 self.fields = self.fields[None,:]
-            self.nfields = len(self.fields)  # number of signals comprising fields
+            self.nfields = len(self.fields)  # number of fields
             self.fields = np.array(self.fields)
             assert self.fields.shape == (self.nfields, self.n), \
                 "Bad shape for fields."
-        if self.diffusivities is not None: 
-            self.diffusivities = np.array(diffusivities)
-            assert self.diffusivities.shape == (self.nfields,), \
-                "Wrong shape for diffusivities."
-        if self.alphas is not None:
-            self.alphas = np.array(alphas)
-            assert self.alphas.shape == (self.nfields,), \
-                "Wrong shape for alphas."
-        if self.betas is not None:
-            self.betas = np.array(betas)
-            assert self.betas.shape == (self.nfields,), \
-                "Wrong shape for betas."
+        self._initialize_field_data(self.alphas, alphas, s='alphas')
+        self._initialize_field_data(self.betas, betas, s='betas')
+        self._initialize_field_data(self.diffusivities, diffusivities, 
+                                    s='diffusivities')
+        # if diffusivities is not None: 
+        #     for d in diffusivities:
+        #         if isinstance(d, (int, float)):
+                    
+        #     self.diffusivities = np.array(diffusivities)
+        #     assert self.diffusivities.shape == (self.nfields,), \
+        #         "Wrong shape for diffusivities."
+        # if self.alphas is not None:
+        #     self.alphas = np.array(alphas)
+        #     assert self.alphas.shape == (self.nfields,), \
+        #         "Wrong shape for alphas."
+        # if self.betas is not None:
+        #     self.betas = np.array(betas)
+        #     assert self.betas.shape == (self.nfields,), \
+        #         "Wrong shape for betas."
+        
         # Spatial information
         self.locations = locations
         if self.locations is not None:
@@ -96,6 +122,24 @@ class TopologicalEmbryoid:
     def __repr__(self) -> str:
         return f"<TopologicalEmbryoid>"
     
+    def _initialize_field_data(self, selfarray, data, s=""):
+        if data is None:
+            return 
+        for d in data:
+            if isinstance(d, (int, float)):
+                selfarray.append(d)
+            elif isinstance(d, list):
+                assert len(d) == self.n, f"Data {s} of type list must have " + \
+                     f"length {self.n}. Got length {len(d)}."
+                selfarray.append(np.array(d))
+            elif isinstance(d, np.ndarray):
+                assert d.shape == (self.n,), f"Data {s} of type ndarray " + \
+                    f"must have shape ({self.n},). Got shape {d.shape}."
+                selfarray.append(d)
+            else:
+                msg = f"Type {type(d)} found for field '{s}'."
+                raise NotImplementedError(msg)
+            
     ######################
     ##  Getter Methods  ##
     ######################

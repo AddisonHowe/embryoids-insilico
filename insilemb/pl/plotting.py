@@ -85,8 +85,8 @@ def draw_circle(c, r, ax, **kwargs):
     
     
 def plot_bounded_voronoi(vor, **kwargs):
-    xlims = kwargs.get('xlims', [-0.1, 1.1])
-    ylims = kwargs.get('ylims', [-0.1, 1.1])
+    xlims = kwargs.get('xlims', None)
+    ylims = kwargs.get('ylims', None)
     plot_points = kwargs.get('plot_points', True)
     plot_centroids = kwargs.get('plot_centroids', True)
     plot_vertices = kwargs.get('plot_vertices', True)
@@ -124,8 +124,8 @@ def plot_bounded_voronoi(vor, **kwargs):
             s=size, c=data, norm=norm, cmap=cmap
         )
         fig.colorbar(sc, ax=ax, fraction=0.015)
-    ax.set_xlim(xlims)
-    ax.set_ylim(ylims)
+    if xlims is not None: ax.set_xlim(xlims)
+    if ylims is not None: ax.set_ylim(ylims)
     if title: 
         ax.set_title(title)
     if saveas:
