@@ -70,8 +70,8 @@ def run_voronoi_simulation(ncells,
         os.makedirs(imgdir, exist_ok=True)
         os.makedirs(datdir, exist_ok=True)
 
-    if writerate is None or writerate == 0 or str(writerate).lower() == 'none':
-        writerate = nsteps
+    if writerate is None or writerate <= 0 or str(writerate).lower() == 'none':
+        writerate = nsteps - 1  # saves only the final state
 
     print('ncells:', ncells)
     print('nsteps:', nsteps)
@@ -179,6 +179,9 @@ def run_voronoi_simulation(ncells,
         if (i+1) % writerate == 0:
             np.save(f"{datdir}/data_{writeidx}.npy", 
                     emb.get_fields().astype(np.float32))
+            np.save(f"{datdir}/time_{writeidx}.npy", [t])
+            if use_gpu:
+                cp.cuda.Stream.null.synchronize()
             writeidx += 1
     plt_history = np.array(plt_history)
     print(f"Simulation complete. Elapsed time: {time.time()-time0:.5g} sec")
